@@ -1,20 +1,41 @@
 import requests
 import csv
-
+import os
 from bs4 import BeautifulSoup
 
-
-
-
-
-def export_csv(csv_name, list_to_implement):     # Cette fonction prend en paramètres le nom du csv à ouvrir/créer, et la liste des données à y implanter
+def download_book_image(category_products_infos, category_name):
+    i = 0
+    FOLDER = "Books_visuals"
+    CHILD_FOLDER = os.path.join(FOLDER, category_name)
+    os.makedirs(CHILD_FOLDER, exist_ok = True)
+    print( category_name + " books visuals download in progress")
+    for element in category_products_infos:
+        i += 1
+        print("downloading " + str(i) + " on " + str(len(category_products_infos)) + " images")
+        title = element["title"]
+        for char in r'\/:*?"<>|':
+            title = title.replace(char, "-")
+        url_image = element["image url"]
+        filepath = os.path.join(CHILD_FOLDER, title + ".jpg")
+        response = requests.get(url_image)
+        if response.ok:
+            with open (filepath, mode="wb") as f:
+                f.write(response.content)
+    
+    return
+    
+def export_csv(csv_name, list_to_implement):     # Cette fonction prend en paramètres le nom du csv à ouvrir/créer, et la liste des données à y implanter, elle crée un dossier dans lequel elle créera les csv contenant les données des articles de chaque catégorie
+    FOLDER = "Books_toscrape_datas"
+    os.makedirs(FOLDER, exist_ok=True) # Création d'un dossier pour contenir les csv et ainsi éviter la sauvegarde à la racine
+    filepath = os.path.join(FOLDER, csv_name)
     headers = list_to_implement[0].keys()     # La liste des headers est générée en récupérant toutes les clés du dictionnaire présent dans la liste via la variable headers
-    with open (csv_name, mode="w", newline="", encoding = "utf-8") as fichier:
+    with open (filepath, mode="w", newline="", encoding = "utf-8-sig") as fichier:
         writer = csv.DictWriter(fichier, fieldnames = headers, delimiter =";")     # Le fichier s'ouvre, les entêtes sont générés avec .writeheader() et les données sont implantées via writerows(liste)
         writer.writeheader()
-        writer.writerows(list_to_implement) 
+        writer.writerows(list_to_implement)
+    return
 
-def grab_pages_urls(base_url, page_content): # Cette fonction récupère en paramètres l'url de la page et son contenu.
+def check_category_pages_quantity(base_url, page_content): # Cette fonction récupère en paramètres l'url de la page et son contenu. Elle vérifie le nombre de pages pour chaque categories et renvoie la liste des urls de chaque page
     pages_urls = []
     if page_content.find("div", class_ = "col-sm-8 col-md-9").find("li", class_ = "current"): # La fonction teste la présence de la balise li class = "current" contenant la chaine de caractères du bas de page "Page 1 of ..."
         page_quantity = page_content.find("div", class_ = "col-sm-8 col-md-9").find("li", class_ = "current").get_text(strip=True).replace("Page 1 of ", "") # Le texte est récupéré et supprimé, sauf le dernier chiffre, indiquant le nombre total de page dans la catégorie ciblée
@@ -23,28 +44,28 @@ def grab_pages_urls(base_url, page_content): # Cette fonction récupère en para
         return pages_urls
     else :
         pages_urls.append(base_url)
-        return pages_urls    # La fonction retourne un tableau contenant toutes les urls des pages de la categorie gràace à la boucle for
+        return pages_urls    # La fonction retourne un tableau contenant toutes les urls des pages de la categorie grâce à la boucle for
 
-def collect_urls_products(pages_urls) : #Cette fonction utilise en paramètre la liste des urls des pages à scrapper
+def collect_urls_products(pages_urls) : # Cette fonction utilise en paramètre la liste des urls des pages à scrapper, elle va récupérer toutes les urls de chaque article de la catégorie et les retourner dans une liste
     urls_products = []
     for url in pages_urls :     #Une boucle for cherche et récupère dans chaque page le code html
         response = requests.get(url)
-        page_content = BeautifulSoup(response.text, "lxml")
+        page_content = BeautifulSoup(response.content, "lxml")
         product_info = page_content.select("article")
         for article in product_info :  # tandis qu'une autre boucle for imbriquée récupère le lien de chaque article de chaque page proprement, le stocke dans urls_products et renvoie la liste
             a = article.find('a')
             urls_products.append("https://books.toscrape.com/catalogue/" + a["href"].replace("../../../", ""))
     return urls_products
 
-def scrapping_infos_per_category(products_urls):     # Cette fonction prend en paramètres le tableau des urls de chaque article.
+def scrapping_infos_per_category(products_urls):     # Cette fonction prend en paramètres le tableau des urls de chaque article, elle récupère toutes les données ciblées de chaque article
     category_infos_list = []
-    for url in products_urls:     # Une boucle for permet de passer sur chaque url pour en récupérer le contenu et ajouter au dict product_infos, toutes les données ciblées
+    for url in products_urls:     # Une boucle for permet de passer sur chaque url présente dans la liste products_urls pour en récupérer le contenu et ajouter au dict product_infos, toutes les données ciblées
         product_infos = {}
-        print(f"scrapping en cours sur {url}")
+        print(f"scrapping in progress on {url}")
         response = requests.get(url)
         if response.ok:
             product_infos["url"] = url
-            product_page_content = BeautifulSoup(response.text, "lxml")
+            product_page_content = BeautifulSoup(response.content, "lxml")
             if product_page_content.find("li", class_="active").find_previous("a").get_text():
                 product_infos["category"] = product_page_content.find("li", class_="active").find_previous("a").get_text()
             else:
@@ -53,6 +74,8 @@ def scrapping_infos_per_category(products_urls):     # Cette fonction prend en p
                 product_infos["title"] = product_page_content.find("article").find("h1").get_text()
             else :
                 product_infos["title"] = None
+            if len(product_infos["title"]) > 50:
+                product_infos["title"] = product_infos["title"][:50] + "..."
             if product_page_content.find("article").find("div", id="product_description"):
                 product_infos["description"] = product_page_content.find("article").find("div", id="product_description").find_next("p").get_text()
             else:
@@ -66,8 +89,8 @@ def scrapping_infos_per_category(products_urls):     # Cette fonction prend en p
                     th = element.find("th")
                     td = element.find("td")
                     product_infos[th.get_text()] = td.get_text()
-                product_infos["Price (excl. tax)"] = float(product_infos["Price (excl. tax)"].replace("Â£", ""))
-                product_infos["Price (incl. tax)"] = float(product_infos["Price (incl. tax)"].replace("Â£", ""))
+                product_infos["Price (excl. tax)"] = float(product_infos["Price (excl. tax)"].replace("£", ""))
+                product_infos["Price (incl. tax)"] = float(product_infos["Price (incl. tax)"].replace("£", ""))
                 product_infos["Availability"] = int(product_infos["Availability"].replace("In stock (", "").replace(" available)", ""))
                 del product_infos["Number of reviews"]     # Les données récupérées en trop en récupérant toutes les cellules td sont supprimées
                 del product_infos["Tax"]
@@ -92,11 +115,12 @@ def scrapping_infos_per_category(products_urls):     # Cette fonction prend en p
 #main
 
 url = "https://books.toscrape.com"
+print("Scrapping on " + url + " launched")
 scrapping_progess = 0
 books_quantity = 0
 response = requests.get(url)
 if response.ok:
-    page_content = BeautifulSoup(response.text, "lxml")
+    page_content = BeautifulSoup(response.content, "lxml")
     if page_content.find("form", method="get", class_="form-horizontal"):
         books_quantity = page_content.find("form", method="get", class_="form-horizontal").find_next("strong").get_text(strip=True)
     if page_content.find("ul", class_="nav nav-list").find_next("ul").find("li"):
@@ -107,15 +131,17 @@ if response.ok:
             print("\nCategory " + category_name + "\n")
             category_page_response = requests.get(new_category_url)
             if category_page_response.ok:
-                category_page_content = BeautifulSoup(category_page_response.text, "lxml")
-                pages_urls.extend(grab_pages_urls(new_category_url,category_page_content))
+                category_page_content = BeautifulSoup(category_page_response.content, "lxml")
+                pages_urls.extend(check_category_pages_quantity(new_category_url,category_page_content))
                 products_urls = collect_urls_products(pages_urls)
                 books_infos_per_category = scrapping_infos_per_category(products_urls)
                 scrapping_progess += len(books_infos_per_category)
                 print("\nScrapping progress : " + str(round(scrapping_progess / int(books_quantity) *100, 2)) + "%\n")
                 export_csv(category_name +".csv", books_infos_per_category)
-                print("\n"+ category_name +".csv succesfully updated\n")
+                print(category_name +".csv succesfully updated\n")
+                download_book_image(books_infos_per_category, category_name)
+                print("\nImages for each book in "+ category_name + " category successfully downloaded\n")
     else:
         print("Error during searching categories' urls")
         exit
-    print("Scrapping ended, all CSV files updated")
+    print("Scrapping ended, all CSV files and images updated")
