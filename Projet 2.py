@@ -3,7 +3,7 @@ import csv
 import os
 from bs4 import BeautifulSoup
 
-def download_book_image(category_products_infos, category_name):
+def download_book_image(category_products_infos, category_name): # Cette fonction prend en paramètres la liste des infos des livres de la catégorie et le nom de la catégorie
     i = 0
     FOLDER = "Books_visuals"
     CHILD_FOLDER = os.path.join(FOLDER, category_name)
