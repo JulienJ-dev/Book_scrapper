@@ -1,13 +1,14 @@
 import requests
 import csv
-import os
+from pathlib import Path
 from bs4 import BeautifulSoup
 
-def download_book_image(category_products_infos, category_name): # Cette fonction prend en paramètres la liste des infos des livres de la catégorie et le nom de la catégorie
+def download_book_image(category_products_infos, category_name, base_dir): # Cette fonction prend en paramètres la liste des infos des livres de la catégorie et le nom de la catégorie
     i = 0
-    FOLDER = "Books_visuals"
-    CHILD_FOLDER = os.path.join(FOLDER, category_name)
-    os.makedirs(CHILD_FOLDER, exist_ok = True)
+    FOLDER = base_dir / "Books_visuals"
+    CHILD_FOLDER = FOLDER / category_name
+    FOLDER.mkdir(parents=True, exist_ok = True)
+    CHILD_FOLDER.mkdir(parents=True, exist_ok = True)
     print( category_name + " books visuals download in progress")
     for element in category_products_infos:
         i += 1
@@ -16,20 +17,20 @@ def download_book_image(category_products_infos, category_name): # Cette fonctio
         for char in r'\/:*?"<>|':
             title = title.replace(char, "-")
         url_image = element["image url"]
-        filepath = os.path.join(CHILD_FOLDER, title + ".jpg")
+        filepath = CHILD_FOLDER / f"{title}.jpg"
         response = requests.get(url_image)
         if response.ok:
-            with open (filepath, mode="wb") as f:
+            with filepath.open (mode="wb") as f:
                 f.write(response.content)
     
     return
     
-def export_csv(csv_name, list_to_implement):     # Cette fonction prend en paramètres le nom du csv à ouvrir/créer, et la liste des données à y implanter, elle crée un dossier dans lequel elle créera les csv contenant les données des articles de chaque catégorie
-    FOLDER = "Books_toscrape_datas"
-    os.makedirs(FOLDER, exist_ok=True) # Création d'un dossier pour contenir les csv et ainsi éviter la sauvegarde à la racine
-    filepath = os.path.join(FOLDER, csv_name)
+def export_csv(csv_name, list_to_implement, base_dir):     # Cette fonction prend en paramètres le nom du csv à ouvrir/créer, et la liste des données à y implanter, elle crée un dossier dans lequel elle créera les csv contenant les données des articles de chaque catégorie
+    FOLDER = base_dir / "Books_toscrape_datas"
+    FOLDER.mkdir(parents=True, exist_ok=True) # Création d'un dossier pour contenir les csv et ainsi éviter la sauvegarde à la racine
+    filepath = FOLDER / csv_name
     headers = list_to_implement[0].keys()     # La liste des headers est générée en récupérant toutes les clés du dictionnaire présent dans la liste via la variable headers
-    with open (filepath, mode="w", newline="", encoding = "utf-8-sig") as fichier:
+    with filepath.open (mode="w", newline="", encoding = "utf-8-sig") as fichier:
         writer = csv.DictWriter(fichier, fieldnames = headers, delimiter =";")     # Le fichier s'ouvre, les entêtes sont générés avec .writeheader() et les données sont implantées via writerows(liste)
         writer.writeheader()
         writer.writerows(list_to_implement)
@@ -114,6 +115,7 @@ def scrapping_infos_per_category(products_urls):     # Cette fonction prend en p
 
 #main
 
+base_dir = Path(__file__).resolve().parent
 url = "https://books.toscrape.com"
 print("Scrapping on " + url + " launched")
 scrapping_progess = 0
@@ -137,9 +139,9 @@ if response.ok:
                 books_infos_per_category = scrapping_infos_per_category(products_urls)
                 scrapping_progess += len(books_infos_per_category)
                 print("\nScrapping progress : " + str(round(scrapping_progess / int(books_quantity) *100, 2)) + "%\n")
-                export_csv(category_name +".csv", books_infos_per_category)
+                export_csv(category_name +".csv", books_infos_per_category, base_dir)
                 print(category_name +".csv succesfully updated\n")
-                download_book_image(books_infos_per_category, category_name)
+                download_book_image(books_infos_per_category, category_name, base_dir)
                 print("\nImages for each book in "+ category_name + " category successfully downloaded\n")
     else:
         print("Error during searching categories' urls")
