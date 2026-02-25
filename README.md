@@ -63,3 +63,13 @@ pip install -r requirements.txt
 ### Toujours dans le terminal, saisir : 
 
 python main_scrapping_books_toscrape.py
+
+## Déroulé du programme
+
+Le programme récupère les données et indique un pourcentage de progression général et par catégorie.
+
+Deux fichiers seront créés à la racine du fichier "Book_Scrapper_Script" :
+
+- "Books_toscrape_datas" : contenant les fichiers csv par catégorie contenant les données scrappées
+
+- "Books_visuals" : contenant les visuels des produits scrappés
