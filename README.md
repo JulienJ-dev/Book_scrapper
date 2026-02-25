@@ -57,3 +57,9 @@ python -m venv .venv
 python.exe -m pip install --upgrade pip
 
 pip install -r requirements.txt
+
+## Lancement du programme
+
+### Toujours dans le terminal, saisir : 
+
+python main_scrapping_books_toscrape.py
